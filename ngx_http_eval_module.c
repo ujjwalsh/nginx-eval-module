@@ -801,7 +801,6 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     if (b->start == NULL) {
         conf = ngx_http_get_module_loc_conf(r->parent, ngx_http_eval_module);
 
-        fprintf(stderr, "buffer size: %d", conf->buffer_size);
         b->start = ngx_palloc(r->pool, conf->buffer_size);
         if (b->start == NULL) {
             return NGX_ERROR;
