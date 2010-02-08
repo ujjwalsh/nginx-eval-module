@@ -18,6 +18,8 @@ typedef struct {
     ngx_str_t                   eval_location;
     ngx_flag_t                  escalate;
     ngx_str_t                   override_content_type;
+    ngx_flag_t                  subrequest_in_memory;
+    size_t                      buffer_size;
 } ngx_http_eval_loc_conf_t;
 
 typedef struct {
@@ -26,6 +28,7 @@ typedef struct {
     unsigned int                done:1;
     unsigned int                in_progress:1;
     ngx_int_t                   status;
+    ngx_buf_t                   buffer;
 } ngx_http_eval_ctx_t;
 
 typedef ngx_int_t (*ngx_http_eval_format_handler_pt)(ngx_http_request_t *r,
@@ -48,11 +51,25 @@ static char *ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent,
 
 static char *ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
+static char *ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf);
+
+static ngx_int_t ngx_http_eval_header_filter(ngx_http_request_t *r);
+static ngx_int_t ngx_http_eval_body_filter(ngx_http_request_t *r,
+        ngx_chain_t *in);
+
+static void ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in);
+
 static ngx_int_t ngx_http_eval_init(ngx_conf_t *cf);
 
 static ngx_int_t ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
 static ngx_int_t ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
 static ngx_int_t ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
+
+static ngx_flag_t  ngx_http_eval_requires_filter = 0;
+
+static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
+static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
 static ngx_http_eval_format_t ngx_http_eval_formats[] = {
     { ngx_string("application/octet-stream"), ngx_http_eval_octet_stream },
@@ -83,6 +100,20 @@ static ngx_command_t  ngx_http_eval_commands[] = {
       ngx_conf_set_str_slot,
       NGX_HTTP_LOC_CONF_OFFSET,
       offsetof(ngx_http_eval_loc_conf_t, override_content_type),
+      NULL },
+
+    { ngx_string("eval_subrequest_in_memory"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
+      ngx_http_eval_subrequest_in_memory,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_eval_loc_conf_t, subrequest_in_memory),
+      NULL },
+
+    { ngx_string("eval_buffer_size"),
+      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+      ngx_conf_set_size_slot,
+      NGX_HTTP_LOC_CONF_OFFSET,
+      offsetof(ngx_http_eval_loc_conf_t, buffer_size),
       NULL },
 
       ngx_null_command
@@ -127,6 +158,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     ngx_http_core_loc_conf_t   *clcf;
     ngx_http_eval_loc_conf_t   *ecf;
     ngx_http_eval_ctx_t        *ctx;
+    ngx_http_eval_ctx_t        *sr_ctx;
     ngx_http_request_t         *sr; 
     ngx_int_t                   rc;
     ngx_http_post_subrequest_t *psr;
@@ -208,7 +240,12 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     psr->handler = ngx_http_eval_post_subrequest_handler;
     psr->data = ctx;
 
-    flags |= NGX_HTTP_SUBREQUEST_IN_MEMORY|NGX_HTTP_SUBREQUEST_WAITED;
+    flags |= NGX_HTTP_SUBREQUEST_WAITED;
+
+    if (ecf->subrequest_in_memory) {
+        flags |= NGX_HTTP_SUBREQUEST_IN_MEMORY;
+    } else {
+    }
 
     rc = ngx_http_subrequest(r, &subrequest_uri, &args, &sr, psr, flags);
 
@@ -219,6 +256,14 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     sr->discard_body = 1;
 
     ctx->in_progress = 1;
+
+    /* XXX we don't allow eval in subrequests, i think? */
+    sr_ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_eval_ctx_t));
+    if (sr_ctx == NULL) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    ngx_http_set_ctx(sr, sr_ctx, ngx_http_eval_module);
 
     /*
      * Wait for subrequest to complete
@@ -298,6 +343,18 @@ static ngx_int_t
 ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
 {
     ngx_http_variable_value_t *value = ctx->values[0];
+    ngx_http_eval_ctx_t       *sr_ctx;
+
+    sr_ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
+
+    if (sr_ctx && sr_ctx->buffer.start) {
+        value->len = sr_ctx->buffer.last - sr_ctx->buffer.pos;
+        value->data = sr_ctx->buffer.pos;
+        value->valid = 1;
+        value->not_found = 0;
+
+        return NGX_OK;
+    }
 
     if (r->upstream) {
         value->len = r->upstream->buffer.last - r->upstream->buffer.pos;
@@ -406,13 +463,22 @@ ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     u_char *pos, *last;
     ngx_str_t param;
     ngx_int_t rc;
+    ngx_http_eval_ctx_t       *sr_ctx;
 
-    if (!r->upstream || r->upstream->buffer.last == r->upstream->buffer.pos) {
-        return NGX_OK;
+    sr_ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
+
+    if (sr_ctx && sr_ctx->buffer.start) {
+        pos = sr_ctx->buffer.pos;
+        last = sr_ctx->buffer.last;
+
+    } else {
+        if (!r->upstream || r->upstream->buffer.last == r->upstream->buffer.pos) {
+            return NGX_OK;
+        }
+
+        pos = r->upstream->buffer.pos;
+        last = r->upstream->buffer.last;
     }
-
-    pos = r->upstream->buffer.pos;
-    last = r->upstream->buffer.last;
 
     do {
         param.data = pos;
@@ -457,6 +523,8 @@ ngx_http_eval_create_loc_conf(ngx_conf_t *cf)
     }
 
     conf->escalate = NGX_CONF_UNSET;
+    conf->buffer_size = NGX_CONF_UNSET_SIZE;
+    conf->subrequest_in_memory = NGX_CONF_UNSET;
 
     return conf;
 }
@@ -469,6 +537,9 @@ ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 
     ngx_conf_merge_value(conf->escalate, prev->escalate, 0);
     ngx_conf_merge_str_value(conf->override_content_type, prev->override_content_type, "");
+    ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size, (size_t) ngx_pagesize);
+    ngx_conf_merge_value(conf->subrequest_in_memory,
+            prev->subrequest_in_memory, 1);
 
     return NGX_CONF_OK;
 }
@@ -640,6 +711,25 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return rv;
 }
 
+static char *
+ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
+        ngx_command_t *cmd, void *conf)
+{
+    ngx_http_eval_loc_conf_t    *elcf = conf;
+    char                        *res;
+
+    res = ngx_conf_set_flag_slot(cf, cmd, conf);
+    if (res != NGX_CONF_OK) {
+        return res;
+    }
+
+    if (elcf->subrequest_in_memory == 0) {
+        ngx_http_eval_requires_filter = 1;
+    }
+
+    return NGX_CONF_OK;
+}
+
 static ngx_int_t
 ngx_http_eval_init(ngx_conf_t *cf)
 {
@@ -655,5 +745,108 @@ ngx_http_eval_init(ngx_conf_t *cf)
 
     *h = ngx_http_eval_handler;
 
+    if (ngx_http_eval_requires_filter) {
+        ngx_http_next_header_filter = ngx_http_top_header_filter;
+        ngx_http_top_header_filter = ngx_http_eval_header_filter;
+
+        ngx_http_next_body_filter = ngx_http_top_body_filter;
+        ngx_http_top_body_filter = ngx_http_eval_body_filter;
+    }
+
     return NGX_OK;
 }
+
+static ngx_int_t
+ngx_http_eval_header_filter(ngx_http_request_t *r)
+{
+    ngx_http_eval_ctx_t             *ctx;
+
+    if (r == r->main) {
+        return ngx_http_next_header_filter(r);
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
+    if (ctx == NULL) {
+        return ngx_http_next_header_filter(r);
+    }
+
+    r->filter_need_in_memory = 1;
+
+    /* suppress header output */
+
+    return NGX_OK;
+}
+
+static ngx_int_t
+ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+{
+    ngx_http_eval_ctx_t         *ctx;
+    ngx_chain_t                 *cl;
+    ngx_buf_t                   *b;
+    ngx_http_eval_loc_conf_t    *conf;
+    size_t                       len;
+    ssize_t                      rest;
+
+    if (r == r->main) {
+        return ngx_http_next_body_filter(r, in);
+    }
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
+    if (ctx == NULL) {
+        return ngx_http_next_body_filter(r, in);
+    }
+
+    b = &ctx->buffer;
+
+    if (b->start == NULL) {
+        conf = ngx_http_get_module_loc_conf(r->parent, ngx_http_eval_module);
+
+        fprintf(stderr, "buffer size: %d", conf->buffer_size);
+        b->start = ngx_palloc(r->pool, conf->buffer_size);
+        if (b->start == NULL) {
+            return NGX_ERROR;
+        }
+
+        b->end = b->start + conf->buffer_size;
+        b->pos = b->last = b->start;
+    }
+
+    for (cl = in; cl; cl = cl->next) {
+        rest = b->end - b->last;
+        if (rest == 0) {
+            break;
+        }
+
+        if ( ! ngx_buf_in_memory(cl->buf)) {
+            continue;
+        }
+
+        len = cl->buf->last - cl->buf->pos;
+        if (len > (size_t) rest) {
+            /* we truncate the exceeding part of the response body */
+            len = rest;
+        }
+
+        b->last = ngx_copy(b->last, cl->buf->pos, len);
+    }
+
+    ngx_http_eval_discard_bufs(r->pool, in);
+
+    return NGX_OK;
+}
+
+static void
+ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
+{
+    ngx_chain_t         *cl;
+
+    for (cl = in->next; cl; cl = cl->next) {
+        if (cl->buf->temporary && cl->buf->memory
+                && ngx_buf_size(cl->buf) > 0) {
+            ngx_pfree(pool, cl->buf->start);
+        }
+
+        cl->buf->pos = cl->buf->last;
+    }
+}
+
