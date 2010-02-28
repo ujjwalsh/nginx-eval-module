@@ -4,6 +4,8 @@
  */
 
 
+#define DDEBUG 0
+#include "ddebug.h"
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
@@ -316,6 +318,8 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int
         content_type.len = sizeof("application/octet-stream") - 1;
     }
 
+    dd("content_type: %.*s", content_type.len, content_type.data);
+
     while(f->content_type.len) {
 
         if(!ngx_strncasecmp(f->content_type.data, content_type.data,
@@ -345,6 +349,8 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     ngx_http_variable_value_t *value = ctx->values[0];
     ngx_http_eval_ctx_t       *sr_ctx;
 
+    dd("eval octet stream");
+
     sr_ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
 
     if (sr_ctx && sr_ctx->buffer.start) {
@@ -372,6 +378,8 @@ ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     ngx_int_t rc;
     u_char *p;
     ngx_http_variable_value_t *value = ctx->values[0];
+
+    dd("eval plain text");
 
     rc = ngx_http_eval_octet_stream(r, ctx);
 
@@ -718,6 +726,8 @@ ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
     ngx_http_eval_loc_conf_t    *elcf = conf;
     char                        *res;
 
+    dd("eval subrequest in memory");
+
     res = ngx_conf_set_flag_slot(cf, cmd, conf);
     if (res != NGX_CONF_OK) {
         return res;
@@ -746,6 +756,7 @@ ngx_http_eval_init(ngx_conf_t *cf)
     *h = ngx_http_eval_handler;
 
     if (ngx_http_eval_requires_filter) {
+        dd("requires filter");
         ngx_http_next_header_filter = ngx_http_top_header_filter;
         ngx_http_top_header_filter = ngx_http_eval_header_filter;
 
@@ -774,6 +785,8 @@ ngx_http_eval_header_filter(ngx_http_request_t *r)
 
     /* suppress header output */
 
+    dd("header filter called: type: %.*s", r->headers_out.content_type.len, r->headers_out.content_type.data);
+
     return NGX_OK;
 }
 
@@ -796,9 +809,12 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         return ngx_http_next_body_filter(r, in);
     }
 
+    dd("in body filter");
+
     b = &ctx->buffer;
 
     if (b->start == NULL) {
+        dd("allocate buffer");
         conf = ngx_http_get_module_loc_conf(r->parent, ngx_http_eval_module);
 
         b->start = ngx_palloc(r->pool, conf->buffer_size);
@@ -817,15 +833,24 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         }
 
         if ( ! ngx_buf_in_memory(cl->buf)) {
+            dd("buf not in memory!");
             continue;
         }
 
         len = cl->buf->last - cl->buf->pos;
+
+        if (len == 0) {
+            continue;
+        }
+
         if (len > (size_t) rest) {
             /* we truncate the exceeding part of the response body */
+            dd("truncate and ignore exceeding bufs");
             len = rest;
         }
 
+
+        dd("copied data '%.*s' (len %d, c0: %d)", len, cl->buf->pos, len, *(cl->buf->pos));
         b->last = ngx_copy(b->last, cl->buf->pos, len);
     }
 
