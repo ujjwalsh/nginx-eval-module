@@ -220,8 +220,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    args.len = 0;
-    args.data = NULL;
+    args = r->args;
     flags = 0;
 
     subrequest_uri.len = ecf->eval_location.len + r->uri.len;
