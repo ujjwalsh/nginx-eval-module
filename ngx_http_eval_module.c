@@ -153,11 +153,11 @@ ngx_module_t  ngx_http_eval_module = {
 static ngx_int_t
 ngx_http_eval_handler(ngx_http_request_t *r)
 {
-    size_t                      loc_len;
+    /* size_t                      loc_len; */
     ngx_str_t                   args; 
     ngx_str_t                   subrequest_uri;
     ngx_uint_t                  flags;
-    ngx_http_core_loc_conf_t   *clcf;
+    /* ngx_http_core_loc_conf_t   *clcf; */
     ngx_http_eval_loc_conf_t   *ecf;
     ngx_http_eval_ctx_t        *ctx;
     ngx_http_eval_ctx_t        *sr_ctx;
@@ -166,6 +166,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     ngx_http_post_subrequest_t *psr;
     u_char                     *p;
 
+    /*
     if(r != r->main) {
         clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
@@ -179,6 +180,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
             r->uri.len = 1;
         }
     }
+    */
 
     ecf = ngx_http_get_module_loc_conf(r, ngx_http_eval_module);
 
