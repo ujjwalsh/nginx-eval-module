@@ -319,7 +319,7 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int
         content_type.len = sizeof("application/octet-stream") - 1;
     }
 
-    dd("content_type: %.*s", content_type.len, content_type.data);
+    dd("content_type: %.*s", (int) content_type.len, content_type.data);
 
     while(f->content_type.len) {
 
@@ -366,6 +366,7 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     if (r->upstream) {
         value->len = r->upstream->buffer.last - r->upstream->buffer.pos;
         value->data = r->upstream->buffer.pos;
+        dd("found upstream buffer %d", (int) value->len);
         value->valid = 1;
         value->not_found = 0;
     }
@@ -786,7 +787,7 @@ ngx_http_eval_header_filter(ngx_http_request_t *r)
 
     /* suppress header output */
 
-    dd("header filter called: type: %.*s", r->headers_out.content_type.len, r->headers_out.content_type.data);
+    dd("header filter called: type: %.*s", (int)r->headers_out.content_type.len, r->headers_out.content_type.data);
 
     return NGX_OK;
 }
@@ -851,7 +852,7 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
         }
 
 
-        dd("copied data '%.*s' (len %d, c0: %d)", len, cl->buf->pos, len, *(cl->buf->pos));
+        dd("copied data '%.*s' (len %d, c0: %d)", (int) len, cl->buf->pos, (int) len, (int) *(cl->buf->pos));
         b->last = ngx_copy(b->last, cl->buf->pos, len);
     }
 
@@ -865,7 +866,7 @@ ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
 {
     ngx_chain_t         *cl;
 
-    for (cl = in->next; cl; cl = cl->next) {
+    for (cl = in; cl; cl = cl->next) {
         if (cl->buf->temporary && cl->buf->memory
                 && ngx_buf_size(cl->buf) > 0) {
             ngx_pfree(pool, cl->buf->start);
