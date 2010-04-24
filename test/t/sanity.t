@@ -154,6 +154,7 @@ GET /eval?user=howdy
 [howdy]
 
 
+
 === TEST 8: eval in subrequests
 --- config
     location /foo {
@@ -175,4 +176,23 @@ GET /eval?user=howdy
     GET /foo
 --- response_body
 --- SKIP
+
+
+
+=== TEST 9: unescape uri
+--- config
+    location /echo {
+        eval $a $b $c {
+            proxy_pass $scheme://127.0.0.1:$server_port/encoded;
+        }
+        echo "a=[$a], b=[$b], c=[$c]";
+    }
+    location /encoded {
+        default_type 'application/x-www-form-urlencoded';
+        echo "a=&b=2&c=a+b%20c";
+    }
+--- request
+GET /echo
+--- response_body
+a=[], b=[2], c=[a b c]
 
