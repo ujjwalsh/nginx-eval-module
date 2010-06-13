@@ -872,10 +872,12 @@ ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
     ngx_chain_t         *cl;
 
     for (cl = in; cl; cl = cl->next) {
+#if 0
         if (cl->buf->temporary && cl->buf->memory
                 && ngx_buf_size(cl->buf) > 0) {
             ngx_pfree(pool, cl->buf->start);
         }
+#endif
 
         cl->buf->pos = cl->buf->last;
     }
