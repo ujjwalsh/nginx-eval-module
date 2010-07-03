@@ -1,12 +1,79 @@
+Synopsis
+
+    # an example for working with the ngx_drizzle + ngx_rds_json
+    # modules, but you must put ngx_rds_json *after*
+    # ngx_eval during nginx configure, for example:
+    #     ./configure --add-module=/path/to/nginx-eval-module \
+    #           --add-module=/path/to/rds-json-nginx-module \
+    #           --add-module=/path/to/drizzle-nginx-module
+    location = /mysql {
+        eval_subrequest_in_memory off;
+        eval_override_content_type text/plain;
+        eval_buffer_size 4k; # default 4k, truncated if overflown
+        eval $res {
+            drizzle_query "select * from cats";
+            drizzle_pass my_mysql_backend;
+            rds_json_on;
+        }
+        # now $res holds the JSON formatted result set
+        if ($res ~ '"Tom"') {
+            echo "Found the Tom cat!";
+            break;
+        }
+        echo "The Tom cat is missing!";
+    }
+
+   # an example for working with the ngx_postgres module
+   location = /login {
+       eval_subrequest_in_memory off;
+       eval_override_content_type text/plain;
+       eval_buffer_size 1k;
+       eval $uid {
+           postgres_query "select id
+               from users
+               where name=$arg_name and pass=$arg_pass";
+           postgres_pass pg_backend;
+           postgres_output value 0 0;
+       }
+       if ($uid !~ '^\d+$') {
+           rewrite ^ /relogin redirect; break;
+       }
+       # your content handler settings...
+    }
+
+Description
+
+This fork of ngx_eval can work with any content handlers and even with filters enabled
+as long as you put ngx_eval *before* your filter modules during nginx configure, for
+instance
+
+    ./configure --prefix=/opt/nginx \
+            --add-module=/path/to/this/nginx-eval-module \
+            --add-module=/path/to/your/filter/module \
+            --add-module=/path/to/your/other/filters
+
+such that ngx_eval's filter works *after* your filter modules.
+
+Compatibility
+    The following versions of Nginx should work with this module:
+
+    *   0.8.0 ~ 0.8.41
+
+    *   0.7.x >= 0.7.21 (last tested version is 0.7.66)
+
+Note that nginx 0.8.42+ won't work.
+
+Original ngx_eval documentation:
 
 Documentation for this module could be found under following URLs:
 
   * English:
 
     http://www.grid.net.ru/nginx/eval.en.html
-    
+
   * Russian:
 
     http://www.grid.net.ru/nginx/eval.ru.html
 
 This work is commissioned by gadu-gadu.pl
+

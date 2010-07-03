@@ -374,6 +374,7 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
         dd("found upstream buffer %d", (int) value->len);
         value->valid = 1;
         value->not_found = 0;
+        dd("XXX no cacheable: %d", (int) value->no_cacheable);
     }
 
     return NGX_OK;
@@ -563,6 +564,8 @@ static ngx_int_t
 ngx_http_eval_variable(ngx_http_request_t *r,
     ngx_http_variable_value_t *v, uintptr_t data) 
 {
+    dd("XXX eval variable get_handle");
+
     v->valid = 1;
     v->no_cacheable = 0;
     v->not_found = 0;
