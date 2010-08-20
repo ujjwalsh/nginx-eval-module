@@ -32,3 +32,4 @@ ctags
 src/module.c
 releng
 t
+*.html
