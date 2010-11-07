@@ -57,12 +57,18 @@ such that ngx_eval's filter works *after* your filter modules.
 Compatibility
     The following versions of Nginx should work with this module:
 
-    *   0.8.0 ~ 0.8.41
+    *   0.8.0 ~ 0.8.41 (0.8.42+ requires patching, see below)
 
     *   0.7.x >= 0.7.21 (last tested version is 0.7.66)
 
 Note that nginx 0.8.42+ won't work due to a famous regression appeared
-since 0.8.42: <http://forum.nginx.org/read.php?29,103078,103078 >.
+since 0.8.42: <http://forum.nginx.org/read.php?29,103078,103078 >, but fortunately a patch is available for
+nginx 0.8.53:
+
+    http://agentzh.org/misc/nginx/nginx-0.8.53-rewrite_phase_fix.patch
+
+This one-line patch should also be able to apply cleanly to
+other versions of nginx 0.8.42+.
 
 Original ngx_eval documentation:
 

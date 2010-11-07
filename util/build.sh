@@ -25,8 +25,9 @@ if [ ! -s "nginx-$version.tar.gz" ]; then
 fi
 
 #tar -xzvf nginx-$version.tar.gz || exit 1
-#cp $root/../no-pool-nginx/nginx-0.8.41-no_pool.patch ./
-#patch -p0 < nginx-0.8.41-no_pool.patch
+#cp $root/../no-pool-nginx/nginx-$version-no_pool.patch ./ || exit 1
+#patch -p0 < nginx-$version-no_pool.patch || exit 1
+#patch -p0 < ~/work/nginx-$version-rewrite_phase_fix.patch || exit 1
 
 cd nginx-$version/
 
@@ -36,7 +37,9 @@ if [[ "$BUILD_CLEAN" -eq 1 || ! -f Makefile || "$root/config" -nt Makefile || "$
           --add-module=$root $opts \
           --add-module=$root/../echo-nginx-module \
           --add-module=$root/../memc-nginx-module \
+          --add-module=$root/../ndk-nginx-module \
           --with-debug
+          #--add-module=$root/../vallery/eval-nginx-module \
           #--add-module=$home/work/nginx/nginx_upstream_hash-0.3 \
   #--without-http_ssi_module  # we cannot disable ssi because echo_location_async depends on it (i dunno why?!)
 
