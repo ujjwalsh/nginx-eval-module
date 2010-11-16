@@ -37,9 +37,9 @@ if [[ "$BUILD_CLEAN" -eq 1 || ! -f Makefile || "$root/config" -nt Makefile || "$
           --add-module=$root $opts \
           --add-module=$root/../echo-nginx-module \
           --add-module=$root/../memc-nginx-module \
-          --add-module=$root/../ndk-nginx-module \
           --with-debug
           #--add-module=$root/../vallery/eval-nginx-module \
+          #--add-module=$root/../ndk-nginx-module \
           #--add-module=$home/work/nginx/nginx_upstream_hash-0.3 \
   #--without-http_ssi_module  # we cannot disable ssi because echo_location_async depends on it (i dunno why?!)
 

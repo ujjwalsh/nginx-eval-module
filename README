@@ -43,9 +43,9 @@ Synopsis
 
 Description
 
-This fork of ngx_eval can work with any content handlers and even with filters enabled
-as long as you put ngx_eval *before* your filter modules during nginx configure, for
-instance
+    This fork of ngx_eval can work with any content handlers and
+    even with filters enabled as long as you put ngx_eval *before*
+    your filter modules during nginx configure, for instance
 
     ./configure --prefix=/opt/nginx \
             --add-module=/path/to/this/nginx-eval-module \
@@ -53,6 +53,10 @@ instance
             --add-module=/path/to/your/other/filters
 
 such that ngx_eval's filter works *after* your filter modules.
+
+Limitations
+    *   The contents of subrequests issued from the eval block won't be
+        captured properly.
 
 Compatibility
     The following versions of Nginx should work with this module:
@@ -69,6 +73,24 @@ but fortunately a patch is available for nginx 0.8.53:
 
 This one-line patch should also be able to apply cleanly to other versions
 of nginx 0.8.42+.
+
+Nowadays we prefer ngx_lua to do the tasks originally done by ngx_eval
+because various limitations in ngx_lua (and yeah, it requires patching
+the core for nginx 0.8.42+, sigh).
+
+Here's a small example using ngx_lua:
+
+ location / {
+   content_by_lua '
+       local res = ngx.location.capture('/getbanner')
+       ngx.print(res)
+   ';
+ }
+
+ location /getbanner {
+       internal;
+       proxy_pass http://backend.local:3500;
+ }
 
 Original ngx_eval documentation:
 

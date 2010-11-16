@@ -201,11 +201,13 @@ a=[], b=[2], c=[a b c]
 === TEST 10: sanity check
 --- config
     location /echo {
-        #eval_subrequest_in_memory off;
+        eval_subrequest_in_memory off;
+        #eval_subrequest_in_memory on;
         #eval_buffer_size 3;
         eval $a {
             #echo_before_body BEFORE;
-            proxy_pass $scheme://127.0.0.1:1234/hi;
+            proxy_pass $scheme://127.0.0.1:$server_port/hi;
+            #proxy_pass $scheme://127.0.0.1:1234/hi;
         }
         echo '!!! [$a]';
     }
@@ -217,5 +219,4 @@ GET /echo
 --- response_body
 !!! [helloooooooooooooooooooo]
 --- timeout: 10
---- SKIP
 
