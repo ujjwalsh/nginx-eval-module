@@ -83,7 +83,7 @@ Here's a small example using ngx_lua:
  location / {
    content_by_lua '
        local res = ngx.location.capture("/getbanner")
-       ngx.print(res)
+       ngx.print(res.body)
    ';
  }
 
