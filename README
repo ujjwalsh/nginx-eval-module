@@ -75,7 +75,7 @@ This one-line patch should also be able to apply cleanly to other versions
 of nginx 0.8.42+.
 
 Nowadays we prefer ngx_lua to do the tasks originally done by ngx_eval
-because of various coherent limitations in ngx_eval (and yeah, it also
+because of various inherent limitations in ngx_eval (and yeah, it also
 requires patching the core for nginx 0.8.42+, sigh).
 
 Here's a small example using ngx_lua:
