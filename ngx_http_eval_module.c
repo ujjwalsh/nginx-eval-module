@@ -276,7 +276,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     /*
      * Wait for subrequest to complete
      */
-    return NGX_AGAIN;
+    return NGX_DONE;
 }
 
 static ngx_int_t
