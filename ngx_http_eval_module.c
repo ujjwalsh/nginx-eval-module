@@ -211,11 +211,14 @@ ngx_http_eval_handler(ngx_http_request_t *r)
             return NGX_DECLINED;
         }
 
+        dd("status: %d", (int) ctx->status);
+
         return ctx->status;
     }
 
     if(ctx->in_progress) {
-        return NGX_AGAIN;
+        dd("still in progress");
+        return NGX_DONE;
     }
 
     psr = ngx_palloc(r->pool, sizeof(ngx_http_post_subrequest_t));
@@ -248,7 +251,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     psr->handler = ngx_http_eval_post_subrequest_handler;
     psr->data = ctx;
 
-    flags |= NGX_HTTP_SUBREQUEST_WAITED;
+    /* flags |= NGX_HTTP_SUBREQUEST_WAITED; */
 
     if (ecf->subrequest_in_memory) {
         flags |= NGX_HTTP_SUBREQUEST_IN_MEMORY;
@@ -555,7 +558,7 @@ ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_conf_merge_str_value(conf->override_content_type, prev->override_content_type, "");
     ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size, (size_t) ngx_pagesize);
     ngx_conf_merge_value(conf->subrequest_in_memory,
-            prev->subrequest_in_memory, 1);
+            prev->subrequest_in_memory, 0);
 
     return NGX_CONF_OK;
 }

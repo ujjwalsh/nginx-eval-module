@@ -1,4 +1,4 @@
-# vi:filetype=perl
+# vi:ft=
 
 use lib 'lib';
 use Test::Nginx::Socket;
@@ -219,4 +219,25 @@ GET /echo
 --- response_body
 !!! [helloooooooooooooooooooo]
 --- timeout: 10
+
+
+
+=== TEST 11: eval with subrequest in memory
+--- config
+    location /echo {
+        eval_subrequest_in_memory on;
+        eval $a {
+            proxy_connect_timeout 10ms;
+            proxy_pass http://www.taobao.com:1234;
+        }
+        echo '!!! [$a]';
+    }
+    location /hi {
+        echo hi;
+    }
+--- request
+GET /echo
+--- response_body
+!!! [hi]
+--- SKIP
 
