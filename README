@@ -55,15 +55,18 @@ Description
 such that ngx_eval's filter works *after* your filter modules.
 
 Limitations
-    *   The contents of subrequests issued from the eval block won't be
+    *   The contents of subrequests issued from within the eval block
+        (like those fired by echo_subrequest) won't be
         captured properly.
 
 Compatibility
     The following versions of Nginx should work with this module:
 
+    *   0.9.x (last tested: 0.9.4)
     *   0.8.0 ~ 0.8.41, 0.8.54+ (0.8.42 ~ 0.8.53 requires patching, see below)
+                        (last tested: 0.8.54)
 
-    *   0.7.x >= 0.7.21 (last tested version is 0.7.66)
+    *   0.7.x >= 0.7.21 (last tested: 0.7.68)
 
 Note that nginx 0.8.42 ~ 0.8.53 won't work due to a famous regression appeared
 since 0.8.42: <http://forum.nginx.org/read.php?29,103078,103078 >,
