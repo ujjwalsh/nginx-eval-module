@@ -73,6 +73,7 @@ GET /echo
 === TEST 4: eval with subrequest in memory
 --- config
     location /echo {
+        eval_subrequest_in_memory on;
         eval $a {
             echo_before_body BEFORE;
             proxy_pass $scheme://127.0.0.1:$server_port/hi;
@@ -195,6 +196,7 @@ GET /eval?user=howdy
 GET /echo
 --- response_body
 a=[], b=[2], c=[a b c]
+--- SKIP
 
 
 

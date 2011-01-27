@@ -4,7 +4,7 @@
  */
 
 
-#define DDEBUG 0
+#define DDEBUG 1
 #include "ddebug.h"
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -73,7 +73,7 @@ static ngx_int_t ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval
 static ngx_int_t ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
 static ngx_int_t ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
 
-static ngx_flag_t  ngx_http_eval_requires_filter = 0;
+static ngx_flag_t  ngx_http_eval_requires_filter = 1;
 
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
@@ -206,7 +206,8 @@ ngx_http_eval_handler(ngx_http_request_t *r)
         ngx_http_set_ctx(r, ctx, ngx_http_eval_module);
     }
 
-    if(ctx->done) {
+    if (ctx->done) {
+        dd("subrequest done");
         if(!ecf->escalate || ctx->status == NGX_OK || ctx->status == NGX_HTTP_OK) {
             return NGX_DECLINED;
         }
@@ -216,7 +217,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
         return ctx->status;
     }
 
-    if(ctx->in_progress) {
+    if (ctx->in_progress) {
         dd("still in progress");
         return NGX_DONE;
     }
@@ -251,12 +252,16 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     psr->handler = ngx_http_eval_post_subrequest_handler;
     psr->data = ctx;
 
-    /* flags |= NGX_HTTP_SUBREQUEST_WAITED; */
+    flags |= NGX_HTTP_SUBREQUEST_WAITED;
+
+    dd("subrequest in memory : %d", (int) ecf->subrequest_in_memory);
 
     if (ecf->subrequest_in_memory) {
         flags |= NGX_HTTP_SUBREQUEST_IN_MEMORY;
     } else {
     }
+
+    dd("issue subrequest");
 
     rc = ngx_http_subrequest(r, &subrequest_uri, &args, &sr, psr, flags);
 
@@ -276,9 +281,8 @@ ngx_http_eval_handler(ngx_http_request_t *r)
 
     ngx_http_set_ctx(sr, sr_ctx, ngx_http_eval_module);
 
-    /*
-     * Wait for subrequest to complete
-     */
+    dd("wait for subrequest to complete");
+
     return NGX_DONE;
 }
 
@@ -342,6 +346,7 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int
     }
 
     ctx->done = 1;
+    /* dd("rc == %d", rc); */
     ctx->status = rc;
 
     return NGX_OK;
@@ -374,7 +379,8 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     if (r->upstream) {
         value->len = r->upstream->buffer.last - r->upstream->buffer.pos;
         value->data = r->upstream->buffer.pos;
-        dd("found upstream buffer %d", (int) value->len);
+        dd("found upstream buffer %d: %.*s", (int) value->len,
+                (int) value->len, value->data);
         value->valid = 1;
         value->not_found = 0;
         dd("XXX no cacheable: %d", (int) value->no_cacheable);
@@ -736,7 +742,6 @@ static char *
 ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
         ngx_command_t *cmd, void *conf)
 {
-    ngx_http_eval_loc_conf_t    *elcf = conf;
     char                        *res;
 
     dd("eval subrequest in memory");
@@ -744,10 +749,6 @@ ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
     res = ngx_conf_set_flag_slot(cf, cmd, conf);
     if (res != NGX_CONF_OK) {
         return res;
-    }
-
-    if (elcf->subrequest_in_memory == 0) {
-        ngx_http_eval_requires_filter = 1;
     }
 
     return NGX_CONF_OK;
@@ -785,12 +786,15 @@ ngx_http_eval_header_filter(ngx_http_request_t *r)
 {
     ngx_http_eval_ctx_t             *ctx;
 
+    dd("header filter");
+
     if (r == r->main) {
         return ngx_http_next_header_filter(r);
     }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
     if (ctx == NULL) {
+        dd("WARNING: ctx is null, forwarding header filter");
         return ngx_http_next_header_filter(r);
     }
 
@@ -813,6 +817,8 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
     size_t                       len;
     ssize_t                      rest;
 
+    dd("in body filter");
+
     if (r == r->main) {
         return ngx_http_next_body_filter(r, in);
     }
@@ -824,11 +830,16 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
     dd("in body filter");
 
+    conf = ngx_http_get_module_loc_conf(r->parent, ngx_http_eval_module);
+
+    if (conf->subrequest_in_memory) {
+        return ngx_http_next_body_filter(r, in);
+    }
+
     b = &ctx->buffer;
 
     if (b->start == NULL) {
         dd("allocate buffer");
-        conf = ngx_http_get_module_loc_conf(r->parent, ngx_http_eval_module);
 
         b->start = ngx_palloc(r->pool, conf->buffer_size);
         if (b->start == NULL) {
