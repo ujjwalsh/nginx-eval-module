@@ -1,3 +1,10 @@
+Status
+    This module is experimental and production use is discouraged.
+    If you want similar (but more powerful) functionalities, see
+    the ngx_lua module instead:
+
+        http://github.com/chaoslawful/lua-nginx-module
+
 Synopsis
 
     # an example for working with the ngx_drizzle + ngx_rds_json
