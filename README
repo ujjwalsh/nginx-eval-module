@@ -80,17 +80,41 @@ requires patching the core for nginx 0.8.42+, sigh).
 
 Here's a small example using ngx_lua:
 
- location / {
-   content_by_lua '
-       local res = ngx.location.capture("/getbanner")
-       ngx.print(res.body)
-   ';
+ location = /filter-spam {
+    internal;
+    proxy_pass http://blah.blah/checker;
  }
 
- location /getbanner {
-       internal;
-       proxy_pass http://backend.local:3500;
+ location / {
+   rewrite_by_lua '
+       local res = ngx.location.capture("/filter-spam")
+       if res.status ~= ngx.HTTP_OK or res.body == nil then
+         return
+       end
+       if string.match(res.body, "SPAM") then
+         return ngx.redirect("/terms-of-use")
+       end
+   ';
+
+   fastcgi_pass ...;
  }
+
+this is roughly equivalent to
+
+ location / {
+    eval $res {
+        proxy_pass http://blah.blah/checker;
+    }
+    if ($res ~ 'SPAM') {
+        rewrite ^ /terms-of-use redirect;
+        break;
+    }
+
+    fastcgi_pass ...;
+ }
+
+Even though the Lua example is a little longer but is much more flexible
+and stable.
 
 Original ngx_eval documentation:
 
