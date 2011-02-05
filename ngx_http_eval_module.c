@@ -6,6 +6,8 @@
 
 #define DDEBUG 0
 #include "ddebug.h"
+
+#include <nginx.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
@@ -657,6 +659,10 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ngx_http_conf_ctx_t       *ctx, *pctx;
     ngx_http_core_loc_conf_t  *clcf, *pclcf, *rclcf;
     ngx_http_core_srv_conf_t  *cscf;
+
+#if defined(nginx_version) && nginx_version >= 8042 && nginx_version <= 8053
+    return "does not work with " NGINX_VER;
+#endif
 
     if(ngx_http_eval_add_variables(cf, cmd, conf) != NGX_CONF_OK) {
         return NGX_CONF_ERROR;
