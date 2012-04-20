@@ -1,4 +1,44 @@
 {
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_create_pool
+   fun:ngx_http_init_request
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_create_pool
+   fun:ngx_event_accept
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_malloc
+   fun:ngx_palloc_large
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_malloc
+   fun:ngx_palloc
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   fun:malloc
+   fun:ngx_alloc
+   fun:ngx_malloc
+   fun:ngx_pnalloc
+}
+{
    nginx-core-process-init
    Memcheck:Leak
    fun:malloc
