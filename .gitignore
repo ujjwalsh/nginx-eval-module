@@ -34,3 +34,7 @@ releng
 t
 *.html
 all.sh
+build10
+buildroot/
+go
+work/
