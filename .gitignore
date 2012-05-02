@@ -31,10 +31,11 @@ misc/chunked
 ctags
 src/module.c
 releng
-t
 *.html
 all.sh
 build10
 buildroot/
 go
 work/
+t/servroot/
+build12

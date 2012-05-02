@@ -353,6 +353,12 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int
     /* dd("rc == %d", rc); */
     ctx->status = rc;
 
+#if 0
+    /* work-around a bug in the nginx core (ngx_http_named_location)
+     */
+    r->parent->write_event_handler = ngx_http_core_run_phases;
+#endif
+
     return NGX_OK;
 }
 
