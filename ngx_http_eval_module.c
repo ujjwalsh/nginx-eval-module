@@ -247,7 +247,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     }
 
     p = ngx_copy(p, ecf->eval_location.data, ecf->eval_location.len);
-    p = ngx_copy(p, r->uri.data, r->uri.len);
+    ngx_memcpy(p, r->uri.data, r->uri.len);
 
     if (ngx_http_parse_unsafe_uri(r, &subrequest_uri, &args, &flags) != NGX_OK) {
         return NGX_ERROR;
