@@ -69,7 +69,20 @@ Limitations
 Compatibility
     The following versions of Nginx should work with this module:
 
+    *   1.5.x (last tested: 0.5.12)
+
+    *   1.4.x (last tested: 1.4.4)
+
+    *   1.3.x (last tested: 1.3.11)
+
+    *   1.2.x (last tested: 1.2.9)
+
+    *   1.1.x (last tested: 1.1.5)
+
+    *   1.0.x (last tested: 1.0.15)
+
     *   0.9.x (last tested: 0.9.4)
+
     *   0.8.0 ~ 0.8.41, 0.8.54+ (0.8.42 ~ 0.8.53 requires patching, see below)
                         (last tested: 0.8.54)
 
