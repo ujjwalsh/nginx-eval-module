@@ -1,9 +1,9 @@
-# vi:filetype=perl
+# vi:filetype=
 
 use lib 'lib';
 use Test::Nginx::Socket; # skip_all => 'ngx_memc storage commands do not work with the ngx_eval module';
 
-plan tests => repeat_each() * 2 * blocks();
+plan tests => repeat_each() * (3 * blocks());
 
 $ENV{TEST_NGINX_MEMCACHED_PORT} ||= 11211;
 
@@ -43,8 +43,10 @@ __DATA__
     GET /eval
 --- response_body
 [STORED]
---- timeout: 30
+--- timeout: 3
 --- error_code: 200
+--- no_error_log
+[error]
 
 
 
@@ -77,6 +79,8 @@ __DATA__
     GET /eval
 --- response_body
 [STORED]
---- timeout: 30
+--- timeout: 3
 --- error_code: 200
+--- no_error_log
+[error]
 
