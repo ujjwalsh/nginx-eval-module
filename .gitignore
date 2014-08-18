@@ -38,4 +38,6 @@ buildroot/
 go
 work/
 t/servroot/
-build12
+build1[57]
+Makefile
+nginx
