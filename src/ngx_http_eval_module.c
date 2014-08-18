@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) 2009 Valery Kholodkov
+ * Copyright (C) 2009-2014 Yichun Zhang
  */
 
 
@@ -9,6 +10,7 @@
 #endif
 #include "ddebug.h"
 
+
 #include <nginx.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -16,13 +18,14 @@
 
 
 static void ngx_unescape_uri_patched(u_char **dst, u_char **src,
-        size_t size, ngx_uint_t type);
+    size_t size, ngx_uint_t type);
 
 
 typedef struct {
     ngx_http_variable_t        *variable;
     ngx_uint_t                  index;
 } ngx_http_eval_variable_t;
+
 
 typedef struct {
     ngx_array_t                *variables;
@@ -33,6 +36,7 @@ typedef struct {
     size_t                      buffer_size;
 } ngx_http_eval_loc_conf_t;
 
+
 typedef struct {
     ngx_http_eval_loc_conf_t   *base_conf;
     ngx_http_variable_value_t **values;
@@ -42,53 +46,65 @@ typedef struct {
     ngx_buf_t                   buffer;
 } ngx_http_eval_ctx_t;
 
+
 typedef ngx_int_t (*ngx_http_eval_format_handler_pt)(ngx_http_request_t *r,
     ngx_http_eval_ctx_t *ctx);
+
 
 typedef struct {
     ngx_str_t                           content_type;
     ngx_http_eval_format_handler_pt     handler;
 } ngx_http_eval_format_t;
 
+
 static ngx_int_t
-ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx, 
+ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
     ngx_http_eval_loc_conf_t *ecf);
 
-static ngx_int_t ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int_t rc);
+static ngx_int_t ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r,
+    void *data, ngx_int_t rc);
 
 static void *ngx_http_eval_create_loc_conf(ngx_conf_t *cf);
 static char *ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent,
     void *child);
 
-static char *ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf);
 
 static char *ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
-        ngx_command_t *cmd, void *conf);
+    ngx_command_t *cmd, void *conf);
 
 static ngx_int_t ngx_http_eval_header_filter(ngx_http_request_t *r);
 static ngx_int_t ngx_http_eval_body_filter(ngx_http_request_t *r,
-        ngx_chain_t *in);
+    ngx_chain_t *in);
 
 static void ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in);
 
 static ngx_int_t ngx_http_eval_init(ngx_conf_t *cf);
 
-static ngx_int_t ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
-static ngx_int_t ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
-static ngx_int_t ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx);
+static ngx_int_t ngx_http_eval_octet_stream(ngx_http_request_t *r,
+    ngx_http_eval_ctx_t *ctx);
+static ngx_int_t ngx_http_eval_plain_text(ngx_http_request_t *r,
+    ngx_http_eval_ctx_t *ctx);
+static ngx_int_t ngx_http_eval_urlencoded(ngx_http_request_t *r,
+    ngx_http_eval_ctx_t *ctx);
+
 
 static ngx_flag_t  ngx_http_eval_requires_filter = 1;
 
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
+
 static ngx_http_eval_format_t ngx_http_eval_formats[] = {
     { ngx_string("application/octet-stream"), ngx_http_eval_octet_stream },
     { ngx_string("text/plain"), ngx_http_eval_plain_text },
-    { ngx_string("application/x-www-form-urlencoded"), ngx_http_eval_urlencoded },
+    { ngx_string("application/x-www-form-urlencoded"),
+      ngx_http_eval_urlencoded },
 
     { ngx_null_string, ngx_http_eval_plain_text }
 };
+
 
 static ngx_command_t  ngx_http_eval_commands[] = {
 
@@ -130,6 +146,7 @@ static ngx_command_t  ngx_http_eval_commands[] = {
       ngx_null_command
 };
 
+
 static ngx_http_module_t  ngx_http_eval_module_ctx = {
     NULL,                                  /* preconfiguration */
     ngx_http_eval_init,                    /* postconfiguration */
@@ -143,6 +160,7 @@ static ngx_http_module_t  ngx_http_eval_module_ctx = {
     ngx_http_eval_create_loc_conf,         /* create location configuration */
     ngx_http_eval_merge_loc_conf           /* merge location configuration */
 };
+
 
 ngx_module_t  ngx_http_eval_module = {
     NGX_MODULE_V1,
@@ -159,33 +177,34 @@ ngx_module_t  ngx_http_eval_module = {
     NGX_MODULE_V1_PADDING
 };
 
+
 static ngx_int_t
 ngx_http_eval_handler(ngx_http_request_t *r)
 {
     /* size_t                      loc_len; */
-    ngx_str_t                   args; 
+    ngx_str_t                   args;
     ngx_str_t                   subrequest_uri;
     ngx_uint_t                  flags;
     /* ngx_http_core_loc_conf_t   *clcf; */
     ngx_http_eval_loc_conf_t   *ecf;
     ngx_http_eval_ctx_t        *ctx;
     ngx_http_eval_ctx_t        *sr_ctx;
-    ngx_http_request_t         *sr; 
+    ngx_http_request_t         *sr;
     ngx_int_t                   rc;
     ngx_http_post_subrequest_t *psr;
     u_char                     *p;
 
     /*
-    if(r != r->main) {
+    if (r != r->main) {
         clcf = ngx_http_get_module_loc_conf(r, ngx_http_core_module);
 
         loc_len = r->valid_location ? clcf->name.len : 0;
 
-        if(r->uri.len != loc_len) {
+        if (r->uri.len != loc_len) {
             r->uri.data += loc_len;
             r->uri.len -= loc_len;
-        }
-        else {
+
+        } else {
             r->uri.len = 1;
         }
     }
@@ -193,13 +212,13 @@ ngx_http_eval_handler(ngx_http_request_t *r)
 
     ecf = ngx_http_get_module_loc_conf(r, ngx_http_eval_module);
 
-    if(ecf->variables == NULL || !ecf->variables->nelts) {
+    if (ecf->variables == NULL || !ecf->variables->nelts) {
         return NGX_DECLINED;
     }
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
 
-    if(ctx == NULL) {
+    if (ctx == NULL) {
         ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_eval_ctx_t));
         if (ctx == NULL) {
             return NGX_HTTP_INTERNAL_SERVER_ERROR;
@@ -212,7 +231,10 @@ ngx_http_eval_handler(ngx_http_request_t *r)
 
     if (ctx->done) {
         dd("subrequest done");
-        if(!ecf->escalate || ctx->status == NGX_OK || ctx->status == NGX_HTTP_OK) {
+        if (!ecf->escalate
+           || ctx->status == NGX_OK
+           || ctx->status == NGX_HTTP_OK)
+        {
             return NGX_DECLINED;
         }
 
@@ -231,7 +253,7 @@ ngx_http_eval_handler(ngx_http_request_t *r)
         return NGX_ERROR;
     }
 
-    if(ngx_http_eval_init_variables(r, ctx, ecf) != NGX_OK) {
+    if (ngx_http_eval_init_variables(r, ctx, ecf) != NGX_OK) {
         return NGX_ERROR;
     }
 
@@ -240,16 +262,19 @@ ngx_http_eval_handler(ngx_http_request_t *r)
 
     subrequest_uri.len = ecf->eval_location.len + r->uri.len;
 
-    p = subrequest_uri.data = ngx_palloc(r->pool, subrequest_uri.len);
-
-    if(p == NULL) {
+    p = ngx_palloc(r->pool, subrequest_uri.len);
+    if (p == NULL) {
         return NGX_ERROR;
     }
+
+    subrequest_uri.data = p;
 
     p = ngx_copy(p, ecf->eval_location.data, ecf->eval_location.len);
     ngx_memcpy(p, r->uri.data, r->uri.len);
 
-    if (ngx_http_parse_unsafe_uri(r, &subrequest_uri, &args, &flags) != NGX_OK) {
+    if (ngx_http_parse_unsafe_uri(r, &subrequest_uri, &args, &flags)
+        != NGX_OK)
+    {
         return NGX_ERROR;
     }
 
@@ -298,14 +323,17 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     return NGX_DONE;
 }
 
+
 static ngx_int_t
-ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx, 
+ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
     ngx_http_eval_loc_conf_t *ecf)
 {
-    ngx_uint_t i;
-    ngx_http_eval_variable_t *variable;
+    ngx_uint_t                   i;
+    ngx_http_eval_variable_t    *variable;
 
-    ctx->values = ngx_pcalloc(r->pool, ecf->variables->nelts * sizeof(ngx_http_variable_value_t*));
+    ctx->values = ngx_pcalloc(r->pool,
+                              ecf->variables->nelts
+                              * sizeof(ngx_http_variable_value_t *));
 
     if (ctx->values == NULL) {
         return NGX_ERROR;
@@ -313,7 +341,7 @@ ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
 
     variable = ecf->variables->elts;
 
-    for(i = 0;i<ecf->variables->nelts;i++) {
+    for (i = 0;i<ecf->variables->nelts;i++) {
         ctx->values[i] = r->variables + variable[i].index;
 
         ctx->values[i]->valid = 0;
@@ -323,32 +351,35 @@ ngx_http_eval_init_variables(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
     return NGX_OK;
 }
 
+
 static ngx_int_t
-ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int_t rc)
+ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data,
+    ngx_int_t rc)
 {
     ngx_http_eval_ctx_t     *ctx = data;
     ngx_http_eval_format_t  *f = ngx_http_eval_formats;
     ngx_str_t                content_type;
 
-    if(ctx->base_conf->override_content_type.len) {
+    if (ctx->base_conf->override_content_type.len) {
         content_type.data = ctx->base_conf->override_content_type.data;
         content_type.len = ctx->base_conf->override_content_type.len;
-    }
-    else if(r->headers_out.content_type.len) {
+
+    } else if (r->headers_out.content_type.len) {
         content_type.data = r->headers_out.content_type.data;
         content_type.len = r->headers_out.content_type.len;
-    }
-    else {
+
+    } else {
         content_type.data = (u_char*)"application/octet-stream";
         content_type.len = sizeof("application/octet-stream") - 1;
     }
 
     dd("content_type: %.*s", (int) content_type.len, content_type.data);
 
-    while(f->content_type.len) {
+    while (f->content_type.len) {
 
-        if(!ngx_strncasecmp(f->content_type.data, content_type.data,
-            f->content_type.len))
+        if (ngx_strncasecmp(f->content_type.data, content_type.data,
+                            f->content_type.len)
+            == 0)
         {
             f->handler(r, ctx);
             break;
@@ -369,6 +400,7 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data, ngx_int
 
     return NGX_OK;
 }
+
 
 /*
  * The next two evaluation methods assume we have at least one varible.
@@ -407,31 +439,32 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
 {
-    ngx_int_t rc;
-    u_char *p;
-    ngx_http_variable_value_t *value = ctx->values[0];
+    u_char         *p;
+    ngx_int_t       rc;
+
+    ngx_http_variable_value_t   *value = ctx->values[0];
 
     dd("eval plain text");
 
     rc = ngx_http_eval_octet_stream(r, ctx);
-
-    if(rc != NGX_OK) {
+    if (rc != NGX_OK) {
         return rc;
     }
 
     /*
      * Remove trailing spaces and control characters
      */
-    if(value->valid) {
+    if (value->valid) {
         p = value->data + value->len;
 
-        while(p != value->data) {
+        while (p != value->data) {
             p--;
 
-            if(*p != CR && *p != LF && *p != '\t' && *p != ' ')
+            if (*p != CR && *p != LF && *p != '\t' && *p != ' ')
                 break;
 
             value->len--;
@@ -441,17 +474,21 @@ ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
     return NGX_OK;
 }
 
+
 static ngx_int_t
-ngx_http_eval_set_variable_value(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
-    ngx_str_t *name, ngx_str_t *value)
+ngx_http_eval_set_variable_value(ngx_http_request_t *r,
+    ngx_http_eval_ctx_t *ctx, ngx_str_t *name, ngx_str_t *value)
 {
-    ngx_uint_t i;
-    ngx_http_eval_variable_t *variable;
+    ngx_uint_t                   i;
+    ngx_http_eval_variable_t    *variable;
 
     variable = ctx->base_conf->variables->elts;
 
-    for(i = 0;i<ctx->base_conf->variables->nelts;i++) {
-        if(!ngx_strncasecmp(variable[i].variable->name.data, name->data, variable[i].variable->name.len)) {
+    for (i = 0; i<ctx->base_conf->variables->nelts; i++) {
+        if (ngx_strncasecmp(variable[i].variable->name.data, name->data,
+                            variable[i].variable->name.len)
+            == 0)
+        {
             ctx->values[i]->len = value->len;
             ctx->values[i]->data = value->data;
             ctx->values[i]->valid = 1;
@@ -462,13 +499,16 @@ ngx_http_eval_set_variable_value(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx
     }
 
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0,
-        "eval: ignored undefined variable \"%V\"", value);
+                  "eval: ignored undefined variable \"%V\"", value);
 
     return NGX_OK;
 }
 
+
 static ngx_int_t
-ngx_http_eval_parse_param(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx, ngx_str_t *param) {
+ngx_http_eval_parse_param(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
+    ngx_str_t *param)
+{
     u_char                    *p, *src, *dst;
 
     ngx_str_t                  name;
@@ -476,7 +516,7 @@ ngx_http_eval_parse_param(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx, ngx_s
 
     p = (u_char *) ngx_strchr(param->data, '=');
 
-    if(p == NULL) {
+    if (p == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                       "eval: invalid param \"%V\"", param);
         return NGX_ERROR;
@@ -500,6 +540,7 @@ ngx_http_eval_parse_param(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx, ngx_s
     return ngx_http_eval_set_variable_value(r, ctx, &name, &value);
 }
 
+
 static ngx_int_t
 ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
 {
@@ -515,7 +556,9 @@ ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
         last = sr_ctx->buffer.last;
 
     } else {
-        if (!r->upstream || r->upstream->buffer.last == r->upstream->buffer.pos) {
+        if (!r->upstream
+            || r->upstream->buffer.last == r->upstream->buffer.pos)
+        {
             return NGX_OK;
         }
 
@@ -542,17 +585,19 @@ ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
             pos++;
         }
 
-        if(param.len != 0) {
+        if (param.len != 0) {
             rc = ngx_http_eval_parse_param(r, ctx, &param);
 
-            if(rc != NGX_OK) {
+            if (rc != NGX_OK) {
                 return rc;
             }
         }
-    }while(pos != last);
+
+    } while (pos != last);
 
     return NGX_OK;
 }
+
 
 static void *
 ngx_http_eval_create_loc_conf(ngx_conf_t *cf)
@@ -572,6 +617,7 @@ ngx_http_eval_create_loc_conf(ngx_conf_t *cf)
     return conf;
 }
 
+
 static char *
 ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -579,17 +625,20 @@ ngx_http_eval_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
     ngx_http_eval_loc_conf_t *conf = child;
 
     ngx_conf_merge_value(conf->escalate, prev->escalate, 0);
-    ngx_conf_merge_str_value(conf->override_content_type, prev->override_content_type, "");
-    ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size, (size_t) ngx_pagesize);
+    ngx_conf_merge_str_value(conf->override_content_type,
+                             prev->override_content_type, "");
+    ngx_conf_merge_size_value(conf->buffer_size, prev->buffer_size,
+                              (size_t) ngx_pagesize);
     ngx_conf_merge_value(conf->subrequest_in_memory,
-            prev->subrequest_in_memory, 0);
+                         prev->subrequest_in_memory, 0);
 
     return NGX_CONF_OK;
 }
 
+
 static ngx_int_t
 ngx_http_eval_variable(ngx_http_request_t *r,
-    ngx_http_variable_value_t *v, uintptr_t data) 
+    ngx_http_variable_value_t *v, uintptr_t data)
 {
     dd("XXX eval variable get_handle");
 
@@ -602,6 +651,7 @@ ngx_http_eval_variable(ngx_http_request_t *r,
 
     return NGX_OK;
 }
+
 
 static char *
 ngx_http_eval_add_variables(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -619,11 +669,11 @@ ngx_http_eval_add_variables(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     ecf->variables = ngx_array_create(cf->pool,
         cf->args->nelts, sizeof(ngx_http_eval_variable_t));
 
-    if(ecf->variables == NULL) {
+    if (ecf->variables == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    for(i = 1;i<cf->args->nelts;i++) {
+    for (i = 1;i<cf->args->nelts;i++) {
         if (value[i].data[0] != '$') {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
                                "invalid variable name \"%V\"", &value[1]);
@@ -631,7 +681,7 @@ ngx_http_eval_add_variables(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
         }
 
         variable = ngx_array_push(ecf->variables);
-        if(variable == NULL) {
+        if (variable == NULL) {
             return NGX_CONF_ERROR;
         }
 
@@ -648,8 +698,7 @@ ngx_http_eval_add_variables(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
             return NGX_CONF_ERROR;
         }
 
-        if (v->get_handler == NULL)
-        {
+        if (v->get_handler == NULL) {
             v->get_handler = ngx_http_eval_variable;
             v->data = index;
         }
@@ -660,6 +709,7 @@ ngx_http_eval_add_variables(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     return NGX_CONF_OK;
 }
+
 
 static char *
 ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -680,7 +730,7 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return "does not work with " NGINX_VER;
 #endif
 
-    if(ngx_http_eval_add_variables(cf, cmd, conf) != NGX_CONF_OK) {
+    if (ngx_http_eval_add_variables(cf, cmd, conf) != NGX_CONF_OK) {
         return NGX_CONF_ERROR;
     }
 
@@ -722,11 +772,12 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
     name.data = ngx_palloc(cf->pool, name.len);
 
-    if(name.data == NULL) {
+    if (name.data == NULL) {
         return NGX_CONF_ERROR;
     }
 
-    name.len = ngx_sprintf(name.data, "/eval_%O", (off_t)(uintptr_t)clcf) - name.data;
+    name.len = ngx_sprintf(name.data, "/eval_%O", (off_t)(uintptr_t) clcf)
+               - name.data;
 
     clcf->loc_conf = ctx->loc_conf;
     clcf->name = name;
@@ -762,9 +813,10 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     return rv;
 }
 
+
 static char *
-ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
-        ngx_command_t *cmd, void *conf)
+ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf, ngx_command_t *cmd,
+    void *conf)
 {
     char                        *res;
 
@@ -777,6 +829,7 @@ ngx_http_eval_subrequest_in_memory(ngx_conf_t *cf,
 
     return NGX_CONF_OK;
 }
+
 
 static ngx_int_t
 ngx_http_eval_init(ngx_conf_t *cf)
@@ -805,6 +858,7 @@ ngx_http_eval_init(ngx_conf_t *cf)
     return NGX_OK;
 }
 
+
 static ngx_int_t
 ngx_http_eval_header_filter(ngx_http_request_t *r)
 {
@@ -826,10 +880,13 @@ ngx_http_eval_header_filter(ngx_http_request_t *r)
 
     /* suppress header output */
 
-    dd("header filter called: type: %.*s", (int)r->headers_out.content_type.len, r->headers_out.content_type.data);
+    dd("header filter called: type: %.*s",
+       (int) r->headers_out.content_type.len,
+       r->headers_out.content_type.data);
 
     return NGX_OK;
 }
+
 
 static ngx_int_t
 ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
@@ -880,7 +937,7 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             break;
         }
 
-        if ( ! ngx_buf_in_memory(cl->buf)) {
+        if (!ngx_buf_in_memory(cl->buf)) {
             dd("buf not in memory!");
             continue;
         }
@@ -897,8 +954,8 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
             len = rest;
         }
 
-
-        dd("copied data '%.*s' (len %d, c0: %d)", (int) len, cl->buf->pos, (int) len, (int) *(cl->buf->pos));
+        dd("copied data '%.*s' (len %d, c0: %d)", (int) len, cl->buf->pos,
+           (int) len, (int) *(cl->buf->pos));
         b->last = ngx_copy(b->last, cl->buf->pos, len);
     }
 
@@ -906,6 +963,7 @@ ngx_http_eval_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
 
     return NGX_OK;
 }
+
 
 static void
 ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
@@ -928,7 +986,7 @@ ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
 /* XXX we also decode '+' to ' ' */
 static void
 ngx_unescape_uri_patched(u_char **dst, u_char **src, size_t size,
-        ngx_uint_t type)
+    ngx_uint_t type)
 {
     u_char  *d, *s, ch, c, decoded;
     enum {
@@ -1060,4 +1118,3 @@ done:
     *dst = d;
     *src = s;
 }
-
