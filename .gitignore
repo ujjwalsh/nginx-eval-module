@@ -41,3 +41,4 @@ t/servroot/
 build1[57]
 Makefile
 nginx
+*.plist
