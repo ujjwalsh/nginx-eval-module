@@ -21,8 +21,8 @@ __DATA__
 --- request
     GET /t
 --- must_die
---- error_log
-"eval" directive is not allowed here
+--- error_log eval
+qr/\[emerg\] .*? "eval" directive is not allowed here/
 
 
 
@@ -36,6 +36,6 @@ __DATA__
 --- request
     GET /t
 --- must_die
---- error_log
-"eval" directive is not allowed here
+--- error_log eval
+qr/\[emerg\] .*? "eval" directive is not allowed here/
 
