@@ -106,7 +106,8 @@ Nginx Compatibility
 
 The following versions of Nginx should work with this module:
 
-* 1.5.x (last tested: 0.5.12)
+* 1.7.x (last tested: 1.7.7)
+* 1.5.x (last tested: 1.5.12)
 * 1.4.x (last tested: 1.4.4)
 * 1.3.x (last tested: 1.3.11)
 * 1.2.x (last tested: 1.2.9)
