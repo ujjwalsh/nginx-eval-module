@@ -46,7 +46,7 @@ location = /mysql {
     eval $res {
         drizzle_query "select * from cats";
         drizzle_pass my_mysql_backend;
-        rds_json_on;
+        rds_json on;
     }
     # now $res holds the JSON formatted result set
     if ($res ~ '"Tom"') {
