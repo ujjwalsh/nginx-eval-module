@@ -12,6 +12,7 @@ Table of Contents
 * [Status](#status)
 * [Synopsis](#synopsis)
 * [Description](#description)
+    * [Use Lua instead](#use-lua-instead)
 * [Limitations](#limitations)
 * [Nginx Compatibility](#nginx-compatibility)
 * [Community](#community)
@@ -93,34 +94,10 @@ such that `ngx_eval`'s filter works *after* your filter modules.
 
 [Back to TOC](#table-of-contents)
 
-Limitations
-===========
+Use Lua instead
+---------------
 
-* The contents of subrequests issued from within the eval block
-(like those fired by echo_subrequest) won't be captured properly.
-
-[Back to TOC](#table-of-contents)
-
-Nginx Compatibility
-===================
-
-The following versions of Nginx should work with this module:
-
-* 1.7.x (last tested: 1.7.7)
-* 1.5.x (last tested: 1.5.12)
-* 1.4.x (last tested: 1.4.4)
-* 1.3.x (last tested: 1.3.11)
-* 1.2.x (last tested: 1.2.9)
-* 1.1.x (last tested: 1.1.5)
-* 1.0.x (last tested: 1.0.15)
-* 0.9.x (last tested: 0.9.4)
-* 0.8.0 ~ 0.8.41, 0.8.54+ (0.8.42 ~ 0.8.53 requires patching, see below) (last tested: 0.8.54)
-* 0.7.x >= 0.7.21 (last tested: 0.7.68)
-
-Note that nginx 0.8.42 ~ 0.8.53 won't work due to a [famous regression](http://forum.nginx.org/read.php?29,103078,103078) appeared
-since 0.8.42.
-
-Nowadays we prefer [ngx_lua](http://github.com/openresty/lua-nginx-module) to do the tasks originally done by `ngx_eval`
+Nowadays, however, we prefer [ngx_lua](http://github.com/openresty/lua-nginx-module) to do the tasks originally done by `ngx_eval`
 because of various inherent limitations in `ngx_eval`.
 
 Here's a small example using ngx_lua:
@@ -163,6 +140,38 @@ location / {
 ```
 
 Even though the Lua example is a little longer but is much more flexible and stable.
+
+[Back to TOC](#table-of-contents)
+
+
+[Back to TOC](#table-of-contents)
+
+Limitations
+===========
+
+* The contents of subrequests issued from within the eval block
+(like those fired by echo_subrequest) won't be captured properly.
+
+[Back to TOC](#table-of-contents)
+
+Nginx Compatibility
+===================
+
+The following versions of Nginx should work with this module:
+
+* 1.7.x (last tested: 1.7.7)
+* 1.5.x (last tested: 1.5.12)
+* 1.4.x (last tested: 1.4.4)
+* 1.3.x (last tested: 1.3.11)
+* 1.2.x (last tested: 1.2.9)
+* 1.1.x (last tested: 1.1.5)
+* 1.0.x (last tested: 1.0.15)
+* 0.9.x (last tested: 0.9.4)
+* 0.8.0 ~ 0.8.41, 0.8.54+ (0.8.42 ~ 0.8.53 requires patching, see below) (last tested: 0.8.54)
+* 0.7.x >= 0.7.21 (last tested: 0.7.68)
+
+Note that nginx 0.8.42 ~ 0.8.53 won't work due to a [famous regression](http://forum.nginx.org/read.php?29,103078,103078) appeared
+since 0.8.42.
 
 [Back to TOC](#table-of-contents)
 
