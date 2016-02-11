@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) 2009 Valery Kholodkov
- * Copyright (C) 2009-2014 Yichun Zhang
+ * Copyright (C) Valery Kholodkov
+ * Copyright (C) Yichun Zhang
  */
 
 
