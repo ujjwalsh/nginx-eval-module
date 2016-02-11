@@ -92,6 +92,14 @@ your filter modules during nginx configure, for instance
 
 such that `ngx_eval`'s filter works *after* your filter modules.
 
+Starting from NGINX 1.9.11, you can also compile this module as a dynamic module, by using the `--add-dynamic-module=PATH` option instead of `--add-module=PATH` on the
+`./configure` command line above. And then you can explicitly load the module in your `nginx.conf` via the [load_module](http://nginx.org/en/docs/ngx_core_module.html#load_module)
+directive, for example,
+
+```nginx
+load_module /path/to/modules/ngx_http_eval_module.so;
+```
+
 [Back to TOC](#table-of-contents)
 
 Use Lua instead
@@ -159,6 +167,8 @@ Nginx Compatibility
 
 The following versions of Nginx should work with this module:
 
+* 1.9.x (last tested: 1.9.7)
+* 1.8.x
 * 1.7.x (last tested: 1.7.7)
 * 1.5.x (last tested: 1.5.12)
 * 1.4.x (last tested: 1.4.4)
@@ -224,7 +234,7 @@ This module is licensed under the BSD license.
 
 Copyright (C) 2009-2010, by Valery Kholodkov valery+nginx@grid.net.ru
 
-Copyright (C) 2010-2014, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
+Copyright (C) 2010-2016, by Yichun "agentzh" Zhang (章亦春) <agentzh@gmail.com>, CloudFlare Inc.
 
 All rights reserved.
 
