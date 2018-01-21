@@ -232,8 +232,8 @@ ngx_http_eval_handler(ngx_http_request_t *r)
     if (ctx->done) {
         dd("subrequest done");
         if (!ecf->escalate
-           || ctx->status == NGX_OK
-           || ctx->status == NGX_HTTP_OK)
+            || ctx->status == NGX_OK
+            || ctx->status == NGX_HTTP_OK)
         {
             return NGX_DECLINED;
         }
@@ -369,7 +369,7 @@ ngx_http_eval_post_subrequest_handler(ngx_http_request_t *r, void *data,
         content_type.len = r->headers_out.content_type.len;
 
     } else {
-        content_type.data = (u_char*)"application/octet-stream";
+        content_type.data = (u_char *) "application/octet-stream";
         content_type.len = sizeof("application/octet-stream") - 1;
     }
 
@@ -430,7 +430,7 @@ ngx_http_eval_octet_stream(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
         value->len = r->upstream->buffer.last - r->upstream->buffer.pos;
         value->data = r->upstream->buffer.pos;
         dd("found upstream buffer %d: %.*s", (int) value->len,
-                (int) value->len, value->data);
+           (int) value->len, value->data);
         value->valid = 1;
         value->not_found = 0;
         dd("XXX no cacheable: %d", (int) value->no_cacheable);
@@ -464,8 +464,9 @@ ngx_http_eval_plain_text(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
         while (p != value->data) {
             p--;
 
-            if (*p != CR && *p != LF && *p != '\t' && *p != ' ')
+            if (*p != CR && *p != LF && *p != '\t' && *p != ' ') {
                 break;
+            }
 
             value->len--;
         }
@@ -544,9 +545,10 @@ ngx_http_eval_parse_param(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx,
 static ngx_int_t
 ngx_http_eval_urlencoded(ngx_http_request_t *r, ngx_http_eval_ctx_t *ctx)
 {
-    u_char *pos, *last;
-    ngx_str_t param;
-    ngx_int_t rc;
+    u_char          *pos, *last;
+    ngx_str_t        param;
+    ngx_int_t        rc;
+
     ngx_http_eval_ctx_t       *sr_ctx;
 
     sr_ctx = ngx_http_get_module_ctx(r, ngx_http_eval_module);
@@ -647,7 +649,7 @@ ngx_http_eval_variable(ngx_http_request_t *r,
     v->not_found = 0;
 
     v->len = 0;
-    v->data = (u_char*)"";
+    v->data = (u_char *) "";
 
     return NGX_OK;
 }
@@ -766,7 +768,7 @@ ngx_http_eval_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 
             mconf = module->create_loc_conf(cf);
             if (mconf == NULL) {
-                 return NGX_CONF_ERROR;
+                return NGX_CONF_ERROR;
             }
 
             ctx->loc_conf[modules[i]->ctx_index] = mconf;
@@ -980,7 +982,8 @@ ngx_http_eval_discard_bufs(ngx_pool_t *pool, ngx_chain_t *in)
     for (cl = in; cl; cl = cl->next) {
 #if 0
         if (cl->buf->temporary && cl->buf->memory
-                && ngx_buf_size(cl->buf) > 0) {
+            && ngx_buf_size(cl->buf) > 0)
+        {
             ngx_pfree(pool, cl->buf->start);
         }
 #endif
